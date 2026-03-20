@@ -11,6 +11,11 @@ namespace chat
             {
                 string? input = Console.ReadLine();
 
+                var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                var address = int.Parse(args.First());
+
+                socket.Bind(new IPEndPoint(IPAddress.Any, address));
+
                 if (input == "exit") // #8
                 {
                     break;
