@@ -7,14 +7,14 @@ namespace chat
     {
         static void Main(string[] args)
         {
+            var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            // TODO: throw exception if listening port number not provided as command line argument.
+            var address = int.Parse(args.First());
+            socket.Bind(new IPEndPoint(IPAddress.Any, address));
+
             while (true)
             {
                 string? input = Console.ReadLine();
-
-                var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                var address = int.Parse(args.First());
-
-                socket.Bind(new IPEndPoint(IPAddress.Any, address));
 
                 if (input == "exit") // #8
                 {
