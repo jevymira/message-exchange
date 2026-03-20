@@ -15,6 +15,19 @@ namespace chat
                 {
                     break;
                 }
+
+                switch (input)
+                {
+                    case "myip": // #2
+                        string hostName = Dns.GetHostName();
+                        IPHostEntry ipHostInfo = Dns.GetHostEntry(hostName);
+                        // Get the IPv4 address, specifically. Otherwise, gets the IPv6 address by default.
+                        // Snippet adapted from https://stackoverflow.com/a/36141575
+                        IPAddress ipAddress = ipHostInfo.AddressList
+                            .FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork);
+                        Console.WriteLine(ipAddress);
+                        break;
+                }
             }
         }
     }
