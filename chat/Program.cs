@@ -32,6 +32,10 @@ namespace chat
                             .FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork);
                         Console.WriteLine(ipAddress);
                         break;
+                    case "myport":
+                        var listeningIpEndPoint = (IPEndPoint)socket.LocalEndPoint;
+                        Console.WriteLine(listeningIpEndPoint.Port);
+                        break;
                 }
             }
         }
