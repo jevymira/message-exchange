@@ -16,12 +16,16 @@ namespace chat
             {
                 string? input = Console.ReadLine();
 
-                if (input == "exit") // #8
+                // Adapted from slide 42, Chapter 2 (tokenizing command input).
+                string[] argValues = input.Split(" ", StringSplitOptions.RemoveEmptyEntries);
+                int argCount = argValues.Length;
+
+                if (argValues[0] == "exit") // #8
                 {
                     break;
                 }
 
-                switch (input)
+                switch (argValues[0])
                 {
                     case "myip": // #2
                         string hostName = Dns.GetHostName();
