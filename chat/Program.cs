@@ -5,15 +5,40 @@ namespace chat
 {
     internal class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
-            var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            var listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
             // TODO: throw exception if listening port number not provided as command line argument.
             var address = int.Parse(args.First());
-            socket.Bind(new IPEndPoint(IPAddress.Any, address));
+            var ipEndPoint = new IPEndPoint(IPAddress.Any, address);
+            listener.Bind(ipEndPoint);
+            listener.Listen();
+
+            var connections = new List<Socket>();
 
             while (true)
             {
+                var readList = new List<Socket>() { listener };
+                /*
+                var writeList = new List<Socket>();
+                var errorList = new List<Socket>();
+                */
+
+                readList.AddRange(connections);
+                // Much like C's select method, but only for Socket types.
+                Socket.Select(readList, null, null, 1_000_000);
+
+                foreach (var socket in readList)
+                {
+                    if (socket == listener)
+                    {
+                        var client = listener.Accept();
+                        connections.Add(client);
+                        Console.WriteLine("CONNECTED");
+                    }
+                }
+
                 string? input = Console.ReadLine();
 
                 // Adapted from slide 42, Chapter 2 (tokenizing command input).
@@ -37,8 +62,35 @@ namespace chat
                         Console.WriteLine(ipAddress);
                         break;
                     case "myport":
-                        var listeningIpEndPoint = (IPEndPoint)socket.LocalEndPoint;
+                        var listeningIpEndPoint = (IPEndPoint)listener.LocalEndPoint;
                         Console.WriteLine(listeningIpEndPoint.Port);
+                        break;
+                    case "connect":
+                        if (argValues.Length < 3)
+                        {
+                            Console.WriteLine("Usage: connect <ip> <port>");
+                            continue;
+                        }
+
+                        string ipStr = argValues[1];
+                        string portStr = argValues[2];
+
+                        if (IPAddress.TryParse(ipStr, out var ip) && int.TryParse(portStr, out int port))
+                        {
+                            var sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                            sock.Connect(new IPEndPoint(ip, port));
+                            connections.Add(sock);
+                        }
+                        else
+                        {
+                            Console.WriteLine("Usage: connect <ip> <port>");
+                        }
+                        break;
+                    case "list":
+                        foreach (var connection in connections)
+                        {
+                            Console.WriteLine(connection.RemoteEndPoint);
+                        }
                         break;
                 }
             }
