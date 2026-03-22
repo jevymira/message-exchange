@@ -39,59 +39,64 @@ namespace chat
                     }
                 }
 
-                string? input = Console.ReadLine();
-
-                // Adapted from slide 42, Chapter 2 (tokenizing command input).
-                string[] argValues = input.Split(" ", StringSplitOptions.RemoveEmptyEntries);
-                int argCount = argValues.Length;
-
-                if (argValues[0] == "exit") // #8
+                if (Console.KeyAvailable)
                 {
-                    break;
-                }
+                    string? input = Console.ReadLine();
 
-                switch (argValues[0])
-                {
-                    case "myip": // #2
-                        string hostName = Dns.GetHostName();
-                        IPHostEntry ipHostInfo = Dns.GetHostEntry(hostName);
-                        // Get the IPv4 address, specifically. Otherwise, gets the IPv6 address by default.
-                        // Snippet adapted from https://stackoverflow.com/a/36141575
-                        IPAddress ipAddress = ipHostInfo.AddressList
-                            .FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork);
-                        Console.WriteLine(ipAddress);
-                        break;
-                    case "myport":
-                        var listeningIpEndPoint = (IPEndPoint)listener.LocalEndPoint;
-                        Console.WriteLine(listeningIpEndPoint.Port);
-                        break;
-                    case "connect":
-                        if (argValues.Length < 3)
-                        {
-                            Console.WriteLine("Usage: connect <ip> <port>");
-                            continue;
-                        }
+                    // Adapted from slide 42, Chapter 2 (tokenizing command input).
+                    string[] argValues = input.Split(" ", StringSplitOptions.RemoveEmptyEntries);
+                    int argCount = argValues.Length;
 
-                        string ipStr = argValues[1];
-                        string portStr = argValues[2];
+                    if (argValues[0] == "exit") // #8
+                    {
+                        break;
+                    }
 
-                        if (IPAddress.TryParse(ipStr, out var ip) && int.TryParse(portStr, out int port))
-                        {
-                            var sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                            sock.Connect(new IPEndPoint(ip, port));
-                            connections.Add(sock);
-                        }
-                        else
-                        {
-                            Console.WriteLine("Usage: connect <ip> <port>");
-                        }
-                        break;
-                    case "list":
-                        foreach (var connection in connections)
-                        {
-                            Console.WriteLine(connection.RemoteEndPoint);
-                        }
-                        break;
+                    switch (argValues[0])
+                    {
+                        case "myip": // #2
+                            string hostName = Dns.GetHostName();
+                            IPHostEntry ipHostInfo = Dns.GetHostEntry(hostName);
+                            // Get the IPv4 address, specifically. Otherwise, gets the IPv6 address by default.
+                            // Snippet adapted from https://stackoverflow.com/a/36141575
+                            IPAddress ipAddress = ipHostInfo.AddressList
+                                .FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork);
+                            Console.WriteLine(ipAddress);
+                            break;
+                        case "myport":
+                            var listeningIpEndPoint = (IPEndPoint)listener.LocalEndPoint;
+                            Console.WriteLine(listeningIpEndPoint.Port);
+                            break;
+                        case "connect":
+                            if (argValues.Length < 3)
+                            {
+                                Console.WriteLine("Usage: connect <ip> <port>");
+                                continue;
+                            }
+
+                            string ipStr = argValues[1];
+                            string portStr = argValues[2];
+
+                            if (IPAddress.TryParse(ipStr, out var ip) && int.TryParse(portStr, out int port))
+                            {
+                                var sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                                sock.Connect(new IPEndPoint(ip, port));
+                                connections.Add(sock);
+                            }
+                            else
+                            {
+                                Console.WriteLine("Usage: connect <ip> <port>");
+                            }
+                            break;
+                        case "list":
+                            foreach (var connection in connections)
+                            {
+                                Console.WriteLine(connection.RemoteEndPoint);
+                            }
+                            break;
+                    }
+
+                    Thread.Sleep(20);
                 }
             }
         }
