@@ -27,7 +27,7 @@ namespace chat
 
                 readList.AddRange(connections);
                 // Much like C's select method, but only for Socket types.
-                Socket.Select(readList, null, null, 1_000_000);
+                Socket.Select(readList, null, null, 100_000);
 
                 foreach (var socket in readList)
                 {
