@@ -111,9 +111,11 @@ namespace chat
                             }
                             break;
                         case "list":
-                            foreach (var connection in connections)
+                            Console.WriteLine("{0,4}{1,-19}{2,8}", "ID: ", "IP Address", "Port No.");
+
+                            for (int i =  0; i < connections.Count; i++)
                             {
-                                Console.WriteLine(connection.RemoteEndPoint);
+                                Console.WriteLine("{0,4}{1,-19}{2,8}", i + 1 + ": ", connections[i].RemoteEndPoint, ((IPEndPoint)connections[i].RemoteEndPoint).Port);
                             }
                             break;
                         case "send":
