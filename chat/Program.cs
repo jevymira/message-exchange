@@ -1,11 +1,12 @@
 ﻿using System.Net;
 using System.Net.Sockets;
+using System.Text;
 
 namespace chat
 {
     internal class Program
     {
-        static async Task Main(string[] args)
+        static void Main(string[] args)
         {
             var listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
@@ -36,6 +37,26 @@ namespace chat
                         var client = listener.Accept();
                         connections.Add(client);
                         Console.WriteLine("CONNECTED");
+                    }
+                    else
+                    {
+                        var buffer = new byte[1024];
+                        var received = socket.Receive(buffer);
+
+                        if (received == 0)
+                        {
+                            connections.Remove(socket);
+                            socket.Close();
+                        }
+                        else
+                        {
+                            var sender = (IPEndPoint)socket.RemoteEndPoint;
+
+                            var msg = Encoding.UTF8.GetString(buffer, 0, received);
+                            Console.WriteLine($"Message received from {sender.Address}");
+                            Console.WriteLine($"Sender's Port: {sender.Port}");
+                            Console.WriteLine($"Message: \"{msg}\"");
+                        }
                     }
                 }
 
@@ -92,6 +113,16 @@ namespace chat
                             foreach (var connection in connections)
                             {
                                 Console.WriteLine(connection.RemoteEndPoint);
+                            }
+                            break;
+                        case "send":
+                            if (int.TryParse(argValues[1], out var id))
+                            {
+                                // Offset by one b/c ID autoincrements starting from 1.
+                                var sock = connections[id + 1];
+                                var msgStr = argValues[2];
+                                var msgBytes = Encoding.UTF8.GetBytes(msgStr);
+                                _ = sock.Send(msgBytes);
                             }
                             break;
                     }
