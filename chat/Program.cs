@@ -40,6 +40,7 @@ namespace chat
                     }
                     else
                     {
+                        // At least 400 bytes to safely hold 100 UTF-8 characters.
                         var buffer = new byte[1024];
                         var received = socket.Receive(buffer);
 
@@ -116,11 +117,20 @@ namespace chat
                             }
                             break;
                         case "send":
+                            // Take whitespace as part of message, instead of as delimiter.
+                            var msgStr = string.Join(" ", argValues.Skip(2));
+
+                            if (msgStr.Length > 100)
+                            {
+                                Console.WriteLine("Message can only be up to 100 characters long, including whitespace.");
+                                continue;
+                            }
+
                             if (int.TryParse(argValues[1], out var id))
                             {
                                 // Offset by one b/c ID autoincrements starting from 1.
-                                var sock = connections[id + 1];
-                                var msgStr = argValues[2];
+                                var sock = connections[id - 1];
+                                
                                 var msgBytes = Encoding.UTF8.GetBytes(msgStr);
                                 _ = sock.Send(msgBytes);
                             }
