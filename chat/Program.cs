@@ -71,8 +71,13 @@ namespace chat
                     string[] argValues = input.Split(" ", StringSplitOptions.RemoveEmptyEntries);
                     int argCount = argValues.Length;
 
-                    if (argValues[0] == "exit") // #8
+                    if (argValues[0] == "exit")
                     {
+                        for (int i = connections.Count - 1; i >= 0; i--)
+                        {
+                            connections[i].Close();
+                            connections.RemoveAt(i);
+                        }
                         break;
                     }
 
@@ -148,7 +153,7 @@ namespace chat
                                 continue;
                             }
 
-                            if (int.TryParse(argValues[1], out var id))
+                            if (int.TryParse(argValues[1], out var id)) 
                             {
                                 // Offset by one b/c ID autoincrements starting from 1.
                                 var sock = connections[id - 1];
