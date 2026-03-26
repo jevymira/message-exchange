@@ -44,14 +44,16 @@ namespace chat
                         var buffer = new byte[1024];
                         var received = socket.Receive(buffer);
 
-                        if (received == 0)
+                        if (received == 0) // Socket closure.
                         {
                             connections.Remove(socket);
+                            var remote = socket.RemoteEndPoint as IPEndPoint;
+                            Console.WriteLine($"Connection closed with IP {remote.Address} and Port No. {remote.Port}");
                             socket.Close();
                         }
                         else
                         {
-                            var sender = (IPEndPoint)socket.RemoteEndPoint;
+                            var sender = socket.RemoteEndPoint as IPEndPoint;
 
                             var msg = Encoding.UTF8.GetString(buffer, 0, received);
                             Console.WriteLine($"Message received from {sender.Address}");
@@ -86,7 +88,7 @@ namespace chat
                             Console.WriteLine(ipAddress);
                             break;
                         case "myport":
-                            var listeningIpEndPoint = (IPEndPoint)listener.LocalEndPoint;
+                            var listeningIpEndPoint = listener.LocalEndPoint as IPEndPoint;
                             Console.WriteLine(listeningIpEndPoint.Port);
                             break;
                         case "connect":
@@ -116,6 +118,24 @@ namespace chat
                             for (int i =  0; i < connections.Count; i++)
                             {
                                 Console.WriteLine("{0,4}{1,-19}{2,8}", i + 1 + ": ", connections[i].RemoteEndPoint, ((IPEndPoint)connections[i].RemoteEndPoint).Port);
+                            }
+                            break;
+                        case "terminate":
+                            if (int.TryParse(argValues[1], out var terminateId))
+                            {
+                                if (terminateId > connections.Count)
+                                {
+                                    Console.WriteLine($"No valid connection with ID: {terminateId}");
+                                }
+                                else
+                                {
+                                    connections[terminateId - 1].Close();
+                                    connections.RemoveAt(terminateId - 1);
+                                }
+                            }
+                            else
+                            {
+                                Console.WriteLine("Usage: terminate <connection id>");
                             }
                             break;
                         case "send":
