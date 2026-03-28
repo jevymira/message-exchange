@@ -52,10 +52,11 @@ internal class Program
                     break;
                 }
 
-                switch (command)
+                switch (command.ToLower())
                 {
-                    case "myip": GetMyIp(); break;
-                    case "myport": GetMyPort(listener); break;
+                    case "help": DisplayHelp(); break;
+                    case "myip": DisplayMyIp(); break;
+                    case "myport": DisplayMyPort(listener); break;
                     case "connect": Connect(connections, argValues); break;
                     case "list": ListConnections(connections); break;
                     case "terminate": TerminateConnection(connections, argValues); break;
@@ -69,6 +70,7 @@ internal class Program
             }
         }
     }
+
     internal static void HandleSocketActivity(Socket socket, Socket listener, List<Socket> connections)
     {
         if (socket == listener)
@@ -101,7 +103,20 @@ internal class Program
         }
     }
 
-    internal static void GetMyIp()
+    internal static void DisplayHelp()
+    {
+        Console.Write("\n");
+        Console.WriteLine("myip         Display the IP address of the current process.");
+        Console.WriteLine("myport       Display the port on which this process is listening for incoming connections.");
+        Console.WriteLine("connect      Establish a new TCP connection to the specified <destination> IP at the specified <port no>.");
+        Console.WriteLine("list         Display a numbered list of all the connections this process is part of.");
+        Console.WriteLine("terminate    Terminate the connection by <id> as displayed by the list command.");
+        Console.WriteLine("send         Send, to host by connection <id> as displayed by the list command, a <message>.");
+        Console.WriteLine("exit         Close all connections and terminate this process.");
+        Console.Write("\n");
+    }
+
+    internal static void DisplayMyIp()
     {
         string hostName = Dns.GetHostName();
         IPHostEntry ipHostInfo = Dns.GetHostEntry(hostName);
@@ -111,7 +126,7 @@ internal class Program
         Console.WriteLine("\n" + ipAddress + "\n");
     }
 
-    internal static void GetMyPort(Socket listener)
+    internal static void DisplayMyPort(Socket listener)
     {
         var endpoint = listener.LocalEndPoint as IPEndPoint;
         Console.WriteLine("\n" + endpoint!.Port + "\n");
