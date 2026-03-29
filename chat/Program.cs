@@ -57,7 +57,7 @@ internal class Program
                     case "help": DisplayHelp(); break;
                     case "myip": DisplayMyIp(); break;
                     case "myport": DisplayMyPort(listener); break;
-                    case "connect": Connect(connections, argValues); break;
+                    case "connect": Connect(listener, connections, argValues); break;
                     case "list": ListConnections(connections); break;
                     case "terminate": TerminateConnection(connections, argValues); break;
                     case "send": SendMessage(connections, argValues); break;
@@ -132,7 +132,7 @@ internal class Program
         Console.WriteLine("\n" + endpoint!.Port + "\n");
     }
 
-    internal static void Connect(List<Socket> connections, string[] argValues)
+    internal static void Connect(Socket listener, List<Socket> connections, string[] argValues)
     {
         if (argValues.Length < 3)
         {
@@ -140,17 +140,37 @@ internal class Program
             return;
         }
 
-        if (IPAddress.TryParse(argValues[1], out var ip) && int.TryParse(argValues[2], out int port))
+        if (!IPAddress.TryParse(argValues[1], out var ip))
         {
+            Console.WriteLine("\n" + "Invalid IP address." + "\n");
+            return;
+        }
+
+        if (!int.TryParse(argValues[2], out int port) || (port is < 0 or > 65535))
+        {
+            Console.WriteLine("\n" + "Invalid port no." + "\n");
+            return;
+        }
+
+        var endpoint = listener.LocalEndPoint as IPEndPoint;
+
+        if (port == endpoint!.Port) // Check for self-connections.
+        {
+            Console.WriteLine("\n" + "Self-connections not allowed." + "\n");
+            return;
+        }
+
+        // Check for attempt to create a connection with duplicate client IP and port.
+        if (connections.Any(c => (c.RemoteEndPoint as IPEndPoint)!.Port == port && (c.RemoteEndPoint as IPEndPoint)!.Address == ip))
+        {
+            Console.WriteLine("\n" + "Duplicate connections not allowed." + "\n");
+            return;
+        }
+
             var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             socket.Connect(new IPEndPoint(ip, port));
             connections.Add(socket);
         }
-        else
-        {
-            Console.WriteLine("\n" + "Usage: connect <ip> <port>" + "\n");
-        }
-    }
 
     internal static void ListConnections(List<Socket> connections)
     {
