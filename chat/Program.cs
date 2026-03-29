@@ -10,13 +10,25 @@ internal class Program
     {
         var listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
-        if (args.Length == 0 || !int.TryParse(args[0], out var port))
+        if (args.Length == 0 || !int.TryParse(args[0], out var port) || (port is < 0 or > 65535))
         {
-            Console.WriteLine("Usage: chat <port>");
+            Console.WriteLine("\n" + "Usage: chat <port>" + "\n");
             return;
         }
 
-        listener.Bind(new IPEndPoint(IPAddress.Any, port));
+        try
+        {
+            listener.Bind(new IPEndPoint(IPAddress.Any, port));
+        }
+        catch (SocketException ex)
+        {
+            if (ex.SocketErrorCode == SocketError.AddressAlreadyInUse)
+            {
+                Console.WriteLine("\n" + "Port in use by another process." + "\n");
+                return;
+            }
+        }
+
         listener.Listen();
 
         var connections = new List<Socket>();
@@ -167,10 +179,10 @@ internal class Program
             return;
         }
 
-            var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            socket.Connect(new IPEndPoint(ip, port));
-            connections.Add(socket);
-        }
+        var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        socket.Connect(new IPEndPoint(ip, port));
+        connections.Add(socket);
+    }
 
     internal static void ListConnections(List<Socket> connections)
     {
