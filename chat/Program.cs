@@ -89,6 +89,8 @@ internal class Program
         {
             var client = listener.Accept();
             connections.Add(client);
+            var remote = client.RemoteEndPoint as IPEndPoint;
+            Console.WriteLine("\n" + $"Connection established with IP {remote!.Address} and Port No. {remote.Port}" + "\n");
         }
         else
         {
