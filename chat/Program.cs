@@ -164,23 +164,24 @@ internal class Program
             return;
         }
 
-        var endpoint = listener.LocalEndPoint as IPEndPoint;
-
-        if (port == endpoint!.Port) // Check for self-connections.
+        // Check for self-connections.
+        if (port == (listener.LocalEndPoint as IPEndPoint)!.Port)
         {
             Console.WriteLine("\n" + "Self-connections not allowed." + "\n");
             return;
         }
 
-        // Check for attempt to create a connection with duplicate client IP and port.
-        if (connections.Any(c => (c.RemoteEndPoint as IPEndPoint)!.Port == port && (c.RemoteEndPoint as IPEndPoint)!.Address == ip))
+        var endpoint = new IPEndPoint(ip, port);
+
+        // Check if there is an existing connection with the same client IP and port combination.
+        if (connections.Any(c => (c.RemoteEndPoint as IPEndPoint)!.Equals(endpoint)))
         {
             Console.WriteLine("\n" + "Duplicate connections not allowed." + "\n");
             return;
         }
 
         var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-        socket.Connect(new IPEndPoint(ip, port));
+        socket.Connect(endpoint);
         connections.Add(socket);
     }
 
