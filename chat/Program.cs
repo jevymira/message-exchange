@@ -187,14 +187,14 @@ internal class Program
 
     internal static void ListConnections(List<Socket> connections)
     {
-        Console.WriteLine("\n" + "{0,4}{1,-19}{2,8}", "ID: ", "IP Address", "Port No.");
+        Console.WriteLine("\n" + "{0,4}{1,-15}{2,8}", "ID: ", "IP Address", "Port No.");
 
         for (int i = 0; i < connections.Count; i++)
         {
             Console.WriteLine(
-                "{0,4}{1,-19}{2,8}",
+                "{0,4}{1,-15}{2,8}",
                 i + 1 + ": ",
-                connections[i].RemoteEndPoint,
+                (connections[i].RemoteEndPoint as IPEndPoint)!.Address,
                 (connections[i].RemoteEndPoint as IPEndPoint)!.Port);
         }
 
