@@ -10,6 +10,7 @@ internal class Program
     {
         var listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
+        // Validate `port` input on initial `./chat <port>` startup call.
         if (args.Length == 0 || !int.TryParse(args[0], out var port) || (port is < 0 or > 65535))
         {
             Console.WriteLine("\n" + "Usage: chat <port>" + "\n");
@@ -96,23 +97,32 @@ internal class Program
         {
             // At least 400 bytes to safely hold 100 UTF-8 characters.
             var buffer = new byte[1024];
-            var received = socket.Receive(buffer);
 
-            if (received == 0) // Socket closure.
+            try
             {
-                connections.Remove(socket);
-                var remote = socket.RemoteEndPoint as IPEndPoint;
-                Console.WriteLine("\n" + $"Connection closed with IP {remote!.Address} and Port No. {remote.Port}" + "\n");
-                socket.Close();
+                var received = socket.Receive(buffer);
+
+                if (received == 0) // Socket closure.
+                {
+                    connections.Remove(socket);
+                    var remote = socket.RemoteEndPoint as IPEndPoint;
+                    Console.WriteLine("\n" + $"Connection closed with IP {remote!.Address} and Port No. {remote.Port}" + "\n");
+                    socket.Close();
+                }
+                else
+                {
+                    var msg = Encoding.UTF8.GetString(buffer, 0, received);
+                    var sender = socket.RemoteEndPoint as IPEndPoint;
+
+                    Console.WriteLine("\n" + $"Message received from {sender!.Address}");
+                    Console.WriteLine($"Sender's Port: {sender.Port}");
+                    Console.WriteLine($"Message: \"{msg}\"" + "\n");
+                }
             }
-            else
-            {
-                var msg = Encoding.UTF8.GetString(buffer, 0, received);
-                var sender = socket.RemoteEndPoint as IPEndPoint;
-
-                Console.WriteLine("\n" + $"Message received from {sender!.Address}");
-                Console.WriteLine($"Sender's Port: {sender.Port}");
-                Console.WriteLine($"Message: \"{msg}\"" + "\n");
+            // Remote host shutdown WITHOUT exit command.
+            catch (SocketException ex) when (ex.SocketErrorCode == SocketError.ConnectionReset)
+            {   
+                connections.Remove(socket);
             }
         }
     }
