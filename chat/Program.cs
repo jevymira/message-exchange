@@ -2,171 +2,284 @@
 using System.Net.Sockets;
 using System.Text;
 
-namespace chat
+namespace chat;
+
+internal class Program
 {
-    internal class Program
+    static void Main(string[] args)
     {
-        static void Main(string[] args)
+        var listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
+        // Validate `port` input on initial `./chat <port>` startup call.
+        if (args.Length == 0 || !int.TryParse(args[0], out var port) || (port is < 0 or > 65535))
         {
-            var listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            Console.WriteLine("\n" + "Usage: chat <port>" + "\n");
+            return;
+        }
 
-            // TODO: throw exception if listening port number not provided as command line argument.
-            var address = int.Parse(args.First());
-            var ipEndPoint = new IPEndPoint(IPAddress.Any, address);
-            listener.Bind(ipEndPoint);
-            listener.Listen();
-
-            var connections = new List<Socket>();
-
-            while (true)
+        // Bind listener socket to supplied <port>.
+        try
+        {
+            listener.Bind(new IPEndPoint(IPAddress.Any, port));
+        }
+        catch (SocketException ex)
+        {
+            if (ex.SocketErrorCode == SocketError.AddressAlreadyInUse)
             {
-                var readList = new List<Socket>() { listener };
-                /*
-                var writeList = new List<Socket>();
-                var errorList = new List<Socket>();
-                */
+                Console.WriteLine("\n" + "Port in use by another process." + "\n");
+                return;
+            }
+        }
 
-                readList.AddRange(connections);
-                // Much like C's select method, but only for Socket types.
-                Socket.Select(readList, null, null, 100_000);
+        listener.Listen();
 
-                foreach (var socket in readList)
+        var connections = new List<Socket>();
+
+        while (true)
+        {
+            var readList = new List<Socket>() { listener };
+
+            readList.AddRange(connections);
+            // Much like C's select method, but only for Socket types.
+            Socket.Select(readList, null, null, 100_000);
+
+            foreach (var socket in readList)
+            {
+                HandleSocketActivity(socket, listener, connections);
+            }
+
+            // Workaround to poll for command line input, since C# Select is scoped to the `Socket` type.
+            if (Console.KeyAvailable)
+            {
+                string input = Console.ReadLine() ?? string.Empty;
+
+                // Adapted from slide 42, Chapter 2 (tokenizing command input).
+                string[] argValues = input.Split(" ", StringSplitOptions.RemoveEmptyEntries);
+                string command = argValues[0];
+
+                if (command == "exit")
                 {
-                    if (socket == listener)
+                    // Close all connections.
+                    for (int i = connections.Count - 1; i >= 0; i--)
                     {
-                        var client = listener.Accept();
-                        connections.Add(client);
-                        Console.WriteLine("CONNECTED");
+                        connections[i].Close();
+                        connections.RemoveAt(i);
                     }
-                    else
-                    {
-                        // At least 400 bytes to safely hold 100 UTF-8 characters.
-                        var buffer = new byte[1024];
-                        var received = socket.Receive(buffer);
-
-                        if (received == 0) // Socket closure.
-                        {
-                            connections.Remove(socket);
-                            var remote = socket.RemoteEndPoint as IPEndPoint;
-                            Console.WriteLine($"Connection closed with IP {remote.Address} and Port No. {remote.Port}");
-                            socket.Close();
-                        }
-                        else
-                        {
-                            var sender = socket.RemoteEndPoint as IPEndPoint;
-
-                            var msg = Encoding.UTF8.GetString(buffer, 0, received);
-                            Console.WriteLine($"Message received from {sender.Address}");
-                            Console.WriteLine($"Sender's Port: {sender.Port}");
-                            Console.WriteLine($"Message: \"{msg}\"");
-                        }
-                    }
+                    break;
                 }
 
-                if (Console.KeyAvailable)
+                // Invoke methods based on command input.
+                switch (command.ToLower())
                 {
-                    string? input = Console.ReadLine();
-
-                    // Adapted from slide 42, Chapter 2 (tokenizing command input).
-                    string[] argValues = input.Split(" ", StringSplitOptions.RemoveEmptyEntries);
-                    int argCount = argValues.Length;
-
-                    if (argValues[0] == "exit")
-                    {
-                        for (int i = connections.Count - 1; i >= 0; i--)
-                        {
-                            connections[i].Close();
-                            connections.RemoveAt(i);
-                        }
+                    case "help": DisplayHelp(); break;
+                    case "myip": DisplayMyIp(); break;
+                    case "myport": DisplayMyPort(listener); break;
+                    case "connect": EstablishConnection(listener, connections, argValues); break;
+                    case "list": ListConnections(connections); break;
+                    case "terminate": TerminateConnection(connections, argValues); break;
+                    case "send": SendMessage(connections, argValues); break;
+                    default:
+                        Console.WriteLine("\n" + "Unrecognized command. Use `help` to see list of commands." + "\n");
                         break;
-                    }
-
-                    switch (argValues[0])
-                    {
-                        case "myip": // #2
-                            string hostName = Dns.GetHostName();
-                            IPHostEntry ipHostInfo = Dns.GetHostEntry(hostName);
-                            // Get the IPv4 address, specifically. Otherwise, gets the IPv6 address by default.
-                            // Snippet adapted from https://stackoverflow.com/a/36141575
-                            IPAddress ipAddress = ipHostInfo.AddressList
-                                .FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork);
-                            Console.WriteLine(ipAddress);
-                            break;
-                        case "myport":
-                            var listeningIpEndPoint = listener.LocalEndPoint as IPEndPoint;
-                            Console.WriteLine(listeningIpEndPoint.Port);
-                            break;
-                        case "connect":
-                            if (argValues.Length < 3)
-                            {
-                                Console.WriteLine("Usage: connect <ip> <port>");
-                                continue;
-                            }
-
-                            string ipStr = argValues[1];
-                            string portStr = argValues[2];
-
-                            if (IPAddress.TryParse(ipStr, out var ip) && int.TryParse(portStr, out int port))
-                            {
-                                var sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                                sock.Connect(new IPEndPoint(ip, port));
-                                connections.Add(sock);
-                            }
-                            else
-                            {
-                                Console.WriteLine("Usage: connect <ip> <port>");
-                            }
-                            break;
-                        case "list":
-                            Console.WriteLine("{0,4}{1,-19}{2,8}", "ID: ", "IP Address", "Port No.");
-
-                            for (int i =  0; i < connections.Count; i++)
-                            {
-                                Console.WriteLine("{0,4}{1,-19}{2,8}", i + 1 + ": ", connections[i].RemoteEndPoint, ((IPEndPoint)connections[i].RemoteEndPoint).Port);
-                            }
-                            break;
-                        case "terminate":
-                            if (int.TryParse(argValues[1], out var terminateId))
-                            {
-                                if (terminateId > connections.Count)
-                                {
-                                    Console.WriteLine($"No valid connection with ID: {terminateId}");
-                                }
-                                else
-                                {
-                                    connections[terminateId - 1].Close();
-                                    connections.RemoveAt(terminateId - 1);
-                                }
-                            }
-                            else
-                            {
-                                Console.WriteLine("Usage: terminate <connection id>");
-                            }
-                            break;
-                        case "send":
-                            // Take whitespace as part of message, instead of as delimiter.
-                            var msgStr = string.Join(" ", argValues.Skip(2));
-
-                            if (msgStr.Length > 100)
-                            {
-                                Console.WriteLine("Message can only be up to 100 characters long, including whitespace.");
-                                continue;
-                            }
-
-                            if (int.TryParse(argValues[1], out var id)) 
-                            {
-                                // Offset by one b/c ID autoincrements starting from 1.
-                                var sock = connections[id - 1];
-                                
-                                var msgBytes = Encoding.UTF8.GetBytes(msgStr);
-                                _ = sock.Send(msgBytes);
-                            }
-                            break;
-                    }
-
-                    Thread.Sleep(20);
                 }
             }
+        }
+    }
+
+    internal static void HandleSocketActivity(Socket socket, Socket listener, List<Socket> connections)
+    {
+        if (socket == listener)
+        {
+            var client = listener.Accept();
+            connections.Add(client);
+            var remote = client.RemoteEndPoint as IPEndPoint;
+            Console.WriteLine("\n" + $"Connection established with host at IP {remote!.Address}, Port No. {remote.Port}" + "\n");
+            return;
+        }
+
+        // At least 400 bytes to safely hold 100 UTF-8 characters.
+        var buffer = new byte[1024];
+
+        try
+        {
+            var received = socket.Receive(buffer);
+
+            if (received == 0) // Socket closure.
+            {
+                connections.Remove(socket);
+                var remote = socket.RemoteEndPoint as IPEndPoint;
+                Console.WriteLine("\n" + $"Connection closed with host at IP {remote!.Address}, Port No. {remote.Port}" + "\n");
+                socket.Close();
+            }
+            else // If has contents.
+            {
+                var msg = Encoding.UTF8.GetString(buffer, 0, received);
+                var sender = socket.RemoteEndPoint as IPEndPoint;
+
+                Console.WriteLine("\n" + $"Message received from {sender!.Address}");
+                Console.WriteLine($"Sender's Port: {sender.Port}");
+                Console.WriteLine($"Message: \"{msg}\"" + "\n");
+            }
+        }
+        // Handle remote host shutdown WITHOUT exit command.
+        catch (SocketException ex) when (ex.SocketErrorCode == SocketError.ConnectionReset)
+        {   
+            connections.Remove(socket);
+        }
+    }
+
+    internal static void DisplayHelp()
+    {
+        Console.Write("\n");
+        Console.WriteLine("myip         Display the IP address of the current process.");
+        Console.WriteLine("myport       Display the port on which this process is listening for incoming connections.");
+        Console.WriteLine("connect      Establish a new TCP connection to the specified <destination> IP at the specified <port no>.");
+        Console.WriteLine("list         Display a numbered list of all the connections this process is part of.");
+        Console.WriteLine("terminate    Terminate the connection by <id> as displayed by the list command.");
+        Console.WriteLine("send         Send, to host by connection <id> as displayed by the list command, a <message>.");
+        Console.WriteLine("exit         Close all connections and terminate this process.");
+        Console.Write("\n");
+    }
+
+    internal static void DisplayMyIp()
+    {
+        string hostName = Dns.GetHostName();
+        IPHostEntry ipHostInfo = Dns.GetHostEntry(hostName);
+        // Get the IPv4 address, specifically. Otherwise, gets the IPv6 address by default.
+        // Snippet adapted from https://stackoverflow.com/a/36141575
+        IPAddress ipAddress = ipHostInfo.AddressList.FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork)!;
+        Console.WriteLine("\n" + $"IPv4: {ipAddress}" + "\n");
+    }
+
+    internal static void DisplayMyPort(Socket listener)
+    {
+        var endpoint = listener.LocalEndPoint as IPEndPoint;
+        Console.WriteLine("\n" + $"Process runs on port no. {endpoint!.Port}" + "\n");
+    }
+
+    internal static void EstablishConnection(Socket listener, List<Socket> connections, string[] argValues)
+    {
+        // Check whether all arguments supplied.
+        if (argValues.Length < 3)
+        {
+            Console.WriteLine("\n" + "Usage: connect <ip> <port>" + "\n");
+            return;
+        }
+
+        if (!IPAddress.TryParse(argValues[1], out var ip))
+        {
+            Console.WriteLine("\n" + "Invalid IP address." + "\n");
+            return;
+        }
+
+        // Check for valid port.
+        if (!int.TryParse(argValues[2], out int port) || (port is < 0 or > 65535))
+        {
+            Console.WriteLine("\n" + "Invalid port no." + "\n");
+            return;
+        }
+
+        // Check for self-connections.
+        if (port == (listener.LocalEndPoint as IPEndPoint)!.Port)
+        {
+            Console.WriteLine("\n" + "Self-connections not allowed." + "\n");
+            return;
+        }
+
+        var endpoint = new IPEndPoint(ip, port);
+
+        // Check if there is an existing connection with the same client IP and port combination.
+        if (connections.Any(c => (c.RemoteEndPoint as IPEndPoint)!.Equals(endpoint)))
+        {
+            Console.WriteLine("\n" + "Duplicate connections not allowed." + "\n");
+            return;
+        }
+
+        // Attempt connection with supplied IP and port combination.
+        try
+        {
+            var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            socket.Connect(endpoint);
+            Console.WriteLine("\n" + $"Successful connection to host at IP {ip}, Port No. {port}" + "\n");
+            connections.Add(socket);
+        }
+        catch (SocketException) // If Connect fails.
+        {
+            Console.WriteLine("\n" + $"Failed to connect." + "\n");
+        }
+    }
+
+    internal static void ListConnections(List<Socket> connections)
+    {
+        Console.WriteLine("\n" + "{0,4}{1,-15}{2,8}", "ID: ", "IP Address", "Port No.");
+
+        for (int i = 0; i < connections.Count; i++)
+        {
+            Console.WriteLine(
+                "{0,4}{1,-15}{2,8}",
+                i + 1 + ": ",
+                (connections[i].RemoteEndPoint as IPEndPoint)!.Address,
+                (connections[i].RemoteEndPoint as IPEndPoint)!.Port);
+        }
+
+        Console.Write("\n");
+    }
+
+    internal static void TerminateConnection(List<Socket> connections, string[] argValues)
+    {
+        // Check whether all arguments supplied.
+        if (argValues.Length < 2)
+        {
+            Console.WriteLine("\n" + "Usage: terminate <connection id>" + "\n");
+            return;
+        }
+
+        if (int.TryParse(argValues[1], out var terminateId))
+        {
+            // Validate ID to be within range of existing connection IDs.
+            if (terminateId < 1 || terminateId > connections.Count)
+            {
+                Console.WriteLine("\n" + $"No connection with ID: {terminateId}" + "\n");
+            }
+            else // If valid.
+            {
+                connections[terminateId - 1].Close();
+                Console.WriteLine("\n" + $"Terminated connection with ID: {terminateId}" + "\n");
+                connections.RemoveAt(terminateId - 1);
+            }
+        }
+        else // If invalid ID.
+        {
+            Console.WriteLine("\n" + "Usage: terminate <connection id>" + "\n");
+        }
+    }
+
+    internal static void SendMessage(List<Socket> connections, string[] argValues)
+    {
+        // Check whether all arguments supplied.
+        if (argValues.Length < 3)
+        {
+            Console.WriteLine("\n" + "Usage: send <id> <message>" + "\n");
+            return;
+        }
+
+        // Take whitespace as part of message, instead of as delimiter.
+        var msgStr = string.Join(" ", argValues.Skip(2));
+
+        if (msgStr.Length > 100)
+        {
+            Console.WriteLine("\n" + "Message can only be 100 characters long, including whitespace." + "\n");
+            return;
+        }
+
+        if (int.TryParse(argValues[1], out var id))
+        {
+            // Offset by one b/c ID autoincrements starting from 1.
+            var sock = connections[id - 1];
+
+            var msgBytes = Encoding.UTF8.GetBytes(msgStr);
+            _ = sock.Send(msgBytes);
+            Console.WriteLine("\n" + $"Message sent to host with connection ID: {id}." + "\n");
         }
     }
 }
