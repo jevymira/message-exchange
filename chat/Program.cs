@@ -21,6 +21,7 @@ internal class Program
         try
         {
             listener.Bind(new IPEndPoint(IPAddress.Any, port));
+            Console.WriteLine("\n" + $"Process bound to port no. {port}. Use `help` to see list of commands." + "\n");
         }
         catch (SocketException ex)
         {
@@ -256,14 +257,21 @@ internal class Program
 
     internal static void SendMessage(List<Socket> connections, string[] argValues)
     {
-        // Check whether all arguments supplied.
-        if (argValues.Length < 3)
+        // Check whether all arguments supplied and are valid.
+        if (argValues.Length < 3 || !int.TryParse(argValues[1], out var id))
         {
             Console.WriteLine("\n" + "Usage: send <id> <message>" + "\n");
             return;
         }
 
-        // Take whitespace as part of message, instead of as delimiter.
+        // Check if connection exists with supplied ID.
+        if (id < 1 || id > connections.Count)
+        {
+            Console.WriteLine("\n" + $"No connection with ID: {id}" + "\n");
+            return;
+        }
+
+        // Reconstruct whitespace of message, taken as delimiter.
         var msgStr = string.Join(" ", argValues.Skip(2));
 
         if (msgStr.Length > 100)
@@ -272,7 +280,7 @@ internal class Program
             return;
         }
 
-        if (int.TryParse(argValues[1], out var id))
+        try
         {
             // Offset by one b/c ID autoincrements starting from 1.
             var sock = connections[id - 1];
@@ -280,6 +288,10 @@ internal class Program
             var msgBytes = Encoding.UTF8.GetBytes(msgStr);
             _ = sock.Send(msgBytes);
             Console.WriteLine("\n" + $"Message sent to host with connection ID: {id}." + "\n");
+        }
+        catch (Exception)
+        {
+            Console.WriteLine("\n" + $"Failed to send message." + "\n");
         }
     }
 }
